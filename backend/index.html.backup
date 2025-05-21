@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <title>블록체인 기록 및 조회 예제 (수정)</title>
+    <style>
+        body { font-family: sans-serif; margin: 20px; }
+        #status { margin-top: 20px; padding: 10px; border: 1px solid #ccc; background-color: #f9f9f9; word-break: break-all; }
+        pre { background-color: #eee; padding: 10px; border-radius: 4px; white-space: pre-wrap; word-break: break-all; }
+    </style>
+</head>
+<body>
+    <h1>프론트엔드 블록체인 연동 (수정)</h1>
+    <button id="myRecordButton">데이터 기록 및 조회 실행</button>
+    <div id="status">여기에 상태 메시지가 표시됩니다...</div>
+
+    <script>
+        // --- 설정 ---
+        const BACKEND_API_BASE_URL = 'http://172.20.208.1:3000'; // 실제 백엔드 서버 주소로 변경하세요
+
+        function delay(ms) {
+          return new Promise(resolve => setTimeout(resolve, ms));
+        }
+
+        async function addJsonToBlockchain(jsonData) {
+          const jsonString = JSON.stringify(jsonData);
+          console.log(`블록체인에 추가 시도: ${jsonString.substring(0, 100)}...`);
+          updateStatus('백엔드에 데이터 추가 요청 중...');
+          try {
+            const response = await fetch(`${BACKEND_API_BASE_URL}/jsons`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', },
+              body: JSON.stringify({ jsonString }), // 백엔드가 받는 형식에 맞춤
+            });
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(`JSON 추가 실패: ${errorData.details || response.statusText}`);
+            }
+            const result = await response.json();
+            console.log('트랜잭션 전송 결과:', result);
+            return result; // { message, transactionHash }
+          } catch (error) {
+            console.error('addJsonToBlockchain 함수 오류:', error);
+            throw error;
+          }
+        }
+
+        async function getJsonCount() {
+          updateStatus('저장된 총 데이터 개수 조회 중...');
+          try {
+            const response = await fetch(`${BACKEND_API_BASE_URL}/jsons/count`);
+            if (!response.ok) {
+              const errorData = await response.json();
+              throw new Error(`JSON 개수 조회 실패: ${errorData.details || response.statusText}`);
+            }
+            const result = await response.json(); // { count }
+            console.log('현재 JSON 데이터 총 개수:', result.count);
+            return result.count;
+          } catch (error) {
+            console.error('getJsonCount 함수 오류:', error);
+            throw error;
+          }
+        }
+
+        async function getJsonByIndex(index) {
+          updateStatus(`인덱스 ${index}의 데이터 조회 중...`);
+          try {
+            const response = await fetch(`${BACKEND_API_BASE_URL}/jsons/${index}`);
+            if (!response.ok) {
+              const errorData = await response.json();
+              if (response.status === 404) {
+                throw new Error(`인덱스 ${index}에서 JSON을 찾을 수 없습니다: ${errorData.error || ''}`);
+              }
+              throw new Error(`인덱스 ${index}의 JSON 조회 실패: ${errorData.details || response.statusText}`);
+            }
+            const result = await response.json(); // { index, jsonString }
+            console.log(`인덱스 ${index}에서 조회된 JSON: ${result.jsonString.substring(0,100)}...`);
+            return result.jsonString; // JSON 문자열만 반환
+          } catch (error) {
+            console.error('getJsonByIndex 함수 오류:', error);
+            throw error;
+          }
+        }
+
+        async function handleActionAndRecord(dataToRecord) {
+          try {
+            console.log('작업 완료. 블록체인 기록 및 조회 프로세스를 시작합니다.');
+            updateStatus('데이터를 블록체인에 기록 중입니다... (백엔드에 트랜잭션 요청)');
+            
+            const { transactionHash } = await addJsonToBlockchain(dataToRecord);
+            updateStatus(`트랜잭션 전송 완료: ${transactionHash}. 블록체인 처리를 기다립니다...`);
+            
+            const estimatedMiningTime = 10000; // 10초 (Fuji 테스트넷 상황에 따라 조절)
+            console.log(`${estimatedMiningTime / 1000}초 동안 마이닝 대기...`);
+            await delay(estimatedMiningTime);
+            
+            updateStatus('기록된 데이터 확인을 시작합니다...');
+            const count = await getJsonCount();
+            if (count === 0) {
+              updateStatus('오류: 데이터가 없거나 개수를 가져올 수 없습니다.');
+              throw new Error('데이터 추가 후 개수를 조회했지만 결과가 0입니다.');
+            }
+            
+            const newIndex = count - 1;
+            updateStatus(`새 데이터의 예상 인덱스: ${newIndex}. 해당 데이터 조회를 시도합니다...`);
+            
+            const retrievedJsonString = await getJsonByIndex(newIndex);
+            const retrievedDataObject = JSON.parse(retrievedJsonString);
+            
+            updateStatus(`데이터 조회 성공! 인덱스: ${newIndex}`);
+            console.log('성공적으로 기록하고 조회한 데이터:', retrievedDataObject);
+            
+            // 수정된 반환 값: 데이터 객체와 인덱스를 함께 반환
+            return { data: retrievedDataObject, index: newIndex }; 
+          } catch (error) {
+            console.error('handleActionAndRecord 함수 전체 프로세스 실패:', error);
+            updateStatus(`오류 발생: ${error.message}`);
+            return null;
+          }
+        }
+
+        function updateStatus(message) {
+          const statusElement = document.getElementById('status');
+          if (statusElement) {
+            statusElement.innerHTML = message; // 메시지에 HTML 태그가 포함될 수 있으므로 innerHTML 사용
+          }
+          console.log(`UI Status: ${message}`);
+        }
+
+        // 버튼 클릭 이벤트 리스너 활성화 부분
+        document.addEventListener('DOMContentLoaded', () => {
+          const recordButton = document.getElementById('myRecordButton');
+          if (recordButton) {
+            recordButton.addEventListener('click', async () => {
+              // 기록할 예시 데이터
+              const dataForBlockchain = {
+                action: "user_task_completion_event_v2",
+                taskId: `task_${Date.now()}`,
+                timestamp: new Date().toISOString(),
+                details: "사용자가 프론트엔드에서 특정 작업을 완료했습니다. (수정된 코드 버전)"
+              };
+              
+              updateStatus('작업을 시작합니다...');
+              const result = await handleActionAndRecord(dataForBlockchain); // 반환된 객체를 result 변수에 저장
+              
+              // 수정된 성공 메시지 처리: result.data 와 result.index 사용
+              if (result && result.data) { 
+                updateStatus(`<strong>성공!</strong> 반환된 데이터 (인덱스: ${result.index}): <pre>${JSON.stringify(result.data, null, 2)}</pre>`);
+              } else {
+                updateStatus('작업에 실패했거나 데이터를 조회하지 못했습니다. 콘솔 로그를 확인하세요.');
+              }
+            });
+          }
+        });
+    </script>
+</body>
+</html>

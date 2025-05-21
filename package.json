@@ -1,0 +1,25 @@
+{
+  "name": "tournament",
+  "version": "1.0.0",
+  "description": "Tournament Bracket Generator",
+  "main": "dist/app.js",
+  "scripts": {
+    "build": "tsc",
+    "watch": "tsc --watch",
+    "start": "npm run watch"
+  },
+  "keywords": [
+    "tournament",
+    "bracket",
+    "typescript",
+    "tailwindcss"
+  ],
+  "author": "doji",
+  "license": "ISC",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "dependencies": {
+    "babylonjs": "^8.7.1"
+  }
+}

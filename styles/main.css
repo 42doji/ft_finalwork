@@ -1,0 +1,202 @@
+/* General body styles */
+body {
+    font-family: 'Noto Sans KR', 'Inter', sans-serif; /* Added Inter as fallback */
+    margin: 0;
+    overflow-x: hidden;
+}
+
+/* Custom scrollbar for bracket container */
+#bracketContainer::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+#bracketContainer::-webkit-scrollbar-track {
+    background: #2d3748; /* bg-slate-700 */
+    border-radius: 10px;
+}
+#bracketContainer::-webkit-scrollbar-thumb {
+    background: #4a5568; /* bg-slate-600 */
+    border-radius: 10px;
+}
+#bracketContainer::-webkit-scrollbar-thumb:hover {
+    background: #718096; /* bg-slate-500 */
+}
+
+/* Participant and Match styling from the original tournament */
+.participant {
+    min-height: 2.5rem; /* 40px */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    word-break: break-all; /* Allow long names to wrap */
+    padding: 0.375rem 0.5rem; /* p-1.5 or p-2 like */
+    text-align: center;
+    border-radius: 0.375rem; /* rounded-md */
+    background-color: #334155; /* slate-700 for participant items */
+    border: 1px solid #475569; /* slate-600 for border */
+    color: #e2e8f0; /* slate-200 for text */
+    transition: background-color 0.2s ease-in-out, border-color 0.2s ease-in-out;
+    box-shadow: 0 1px 3px 0 rgba(0,0,0,0.1), 0 1px 2px -1px rgba(0,0,0,0.1); /* shadow-sm */
+}
+
+.match {
+    min-height: 7rem; /* Increased min-height for better spacing */
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around; /* Use space-around for better vertical spacing of participants */
+    align-items: center; /* Center participants horizontally */
+    gap: 0.5rem; /* Add gap between participants in a match */
+    /* background-color: #1e293b; /* slate-800 - match background if needed, but usually transparent */
+    padding: 0.5rem; /* Add some padding within the match container */
+    border-radius: 0.5rem; /* rounded-lg for match containers */
+}
+
+.round-column {
+    padding-top: 1rem;
+    padding-bottom: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem; /* Space between matches in a round */
+    min-width: 150px; /* Minimum width for a round column */
+}
+
+/* NEW STYLES FOR WINNER/LOSER/CLICKABLE */
+.participant-winner {
+    font-weight: 700; /* bold */
+    color: #6EE7B7; /* Tailwind emerald-300 (a bit brighter green) */
+    border-color: #34D399; /* Tailwind emerald-400 */
+    background-color: #059669; /* Tailwind emerald-700 (darker green for contrast) */
+}
+
+.participant-loser {
+    /* text-decoration: line-through; */ /* Optional: some find it hard to read */
+    color: #94A3B8; /* Tailwind slate-400 */
+    background-color: #475569; /* Tailwind slate-600 */
+    opacity: 0.7;
+}
+
+.participant-clickable {
+    cursor: pointer;
+}
+
+.participant-clickable:hover {
+    background-color: #475569; /* Tailwind slate-600 */
+    border-color: #64748B; /* Tailwind slate-500 */
+}
+
+.participant-bye {
+    color: #94A3B8; /* Tailwind slate-400 */
+    font-style: italic;
+    background-color: #1E293B; /* Tailwind slate-800, less prominent */
+    border-color: #334155; /* slate-700 */
+}
+
+.participant-empty { /* Style for slots not yet filled by a winner */
+    background-color: #1E293B; /* Tailwind slate-800 */
+    border: 1px dashed #475569; /* Dashed border for empty slots */
+    color: #64748B; /* Tailwind slate-500 */
+}
+
+
+/* Styles from new 3D Pong Game */
+#renderCanvasPong3D {
+    touch-action: none;
+}
+
+.ui-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.75rem;
+    width: 100%;
+    margin-bottom: 0.75rem;
+}
+
+.setting-item label {
+    display: block;
+    margin-bottom: 0.25rem;
+    font-weight: 500;
+    color: #a0aec0; /* text-gray-400 */
+    font-size: 0.875rem;
+}
+
+.setting-item select, .setting-item input[type="number"], .setting-item input[type="text"] {
+    width: 100%;
+    padding: 0.5rem;
+    border-radius: 0.375rem; /* rounded-md */
+    background-color: #4a5568; /* bg-gray-600 */
+    border: 1px solid #718096; /* border-gray-500 */
+    color: white;
+    font-size: 0.875rem;
+}
+
+.game-controls {
+    display: flex;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.game-info {
+    display: flex;
+    justify-content: space-around;
+    width: 100%;
+    margin-top: 0.5rem;
+    font-size: 1.125rem; /* text-lg */
+    font-weight: bold;
+}
+
+.message-area {
+    margin-top: 0.5rem;
+    font-size: 1rem; /* text-base */
+    color: #fbd38d; /* text-yellow-300 */
+    min-height: 24px;
+    text-align: center;
+}
+
+#pong3DGameSection button {
+    padding: 0.6rem 1.2rem;
+    background-color: #4299e1; /* bg-blue-500 */
+    color: white;
+    font-weight: bold;
+    border-radius: 0.375rem; /* rounded-md */
+    cursor: pointer;
+    transition: background-color 0.2s;
+    font-size: 0.9rem;
+}
+
+#pong3DGameSection button:hover {
+    background-color: #3182ce; /* bg-blue-600 */
+}
+
+#pong3DGameSection button:disabled {
+    background-color: #718096; /* bg-gray-500 */
+    cursor: not-allowed;
+}
+
+#pong3DGameSection .score { color: #68d391; /* text-green-400 */ }
+#pong3DGameSection .timer { color: #f56565; /* text-red-400 */ }
+
+#pong3DGameSection .retro-font {
+    font-family: 'PressStart2P', 'Inter', monospace;
+}
+
+/* Ensure body takes full height for footer positioning if content is short */
+html, body {
+    height: 100%;
+}
+body {
+    display: flex;
+    flex-direction: column;
+}
+#tournamentSectionContainer, #pong3DGameSection {
+    flex-shrink: 0; /* Prevent these sections from shrinking */
+}
+footer {
+    margin-top: auto; /* Push footer to the bottom */
+}
+

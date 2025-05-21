@@ -1,0 +1,22 @@
+// tsconfig.json 예시
+{
+  "compilerOptions": {
+    "target": "es2016", // 또는 더 최신 버전
+    "module": "CommonJS",
+    "outDir": "./dist",       // <--- 중요: 컴파일된 JS 파일 출력 폴더 지정
+    // "rootDir": "./",      // 소스 루트 (server.ts가 루트에 있으므로 './' 또는 생략)
+    "esModuleInterop": true,
+    "forceConsistentCasingInFileNames": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true // JSON 파일(ABI 등) import 위해 필요
+  },
+    "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1", // 기본 test 스크립트
+    "build": "tsc",                                     // tsc로 빌드하는 스크립트
+    "start": "node dist/server.js"                      // 빌드된 결과 실행
+    // "dev": "nodemon server.ts"                      // 개발용 스크립트 (선택 사항)
+  },
+  "include": ["server.ts"],   // <--- 중요: 컴파일할 파일 지정 (루트의 server.ts)
+  "exclude": ["node_modules"] // node_modules 폴더는 컴파일에서 제외
+}
