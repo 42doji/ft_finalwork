@@ -1,5 +1,4 @@
 "use strict";
-// app.ts
 let tournamentData = [];
 const BYE_PLAYER_NAME = "BYE";
 // --- DOM Elements ---
