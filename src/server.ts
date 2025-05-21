@@ -1,17 +1,20 @@
 import Fastify, { FastifyInstance, RouteShorthandOptions } from 'fastify';
-import { ethers, Contract, Wallet, Provider, JsonRpcProvider, ContractTransactionResponse, TransactionReceipt } from 'ethers'; // TransactionReceipt 추가
+import { ethers, Contract, Wallet, Provider, JsonRpcProvider, ContractTransactionResponse } from 'ethers';
 import dotenv from 'dotenv';
-import SimpleJsonArrayStorageABI from './src/abi/SimpleJsonArrayStorage.json';
+import SimpleJsonArrayStorageABI from '../dist/src/abi/SimpleJsonArrayStorage.json' with { type: 'json' };
 import cors from '@fastify/cors';
 
 // .env 파일 로드
 dotenv.config();
 
-const server: FastifyInstance = Fastify({ logger: true });
+// Fastify 인스턴스 생성
+const server: FastifyInstance = Fastify({ logger: true }); // 로깅 활성화
 
 server.register(cors, {
-  origin: "*",
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  origin: "*", // 모든 출처 허용 (개발 중에는 "*" 또는 특정 origin 'null' 사용 가능)
+               // 프로덕션 환경에서는 실제 프론트엔드 도메인을 지정하는 것이 좋습니다.
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // 허용할 HTTP 메소드
+  // allowedHeaders: ['Content-Type', 'Authorization'] // 필요시 허용할 헤더 추가
 });
 
 // --- 환경 변수 및 설정 ---
@@ -20,19 +23,22 @@ const rpcUrl = process.env.FUJI_RPC_URL;
 const privateKey = process.env.PRIVATE_KEY;
 const contractAddress = process.env.CONTRACT_ADDRESS;
 
+// 필수 환경 변수 확인
 if (!rpcUrl || !privateKey || !contractAddress) {
   server.log.error('Missing required environment variables: FUJI_RPC_URL, PRIVATE_KEY, CONTRACT_ADDRESS');
   process.exit(1);
 }
 
+// --- Ethers.js 설정 ---
 let provider: Provider;
 let signer: Wallet;
 let contract: Contract;
 
 try {
   provider = new JsonRpcProvider(rpcUrl);
+  // 🚨 중요: 프로덕션에서는 이렇게 비공개 키를 직접 사용하는 것은 안전하지 않습니다!
   signer = new ethers.Wallet(privateKey, provider);
-  contract = new ethers.Contract(contractAddress, SimpleJsonArrayStorageABI.abi, signer);
+  contract = new ethers.Contract(contractAddress, SimpleJsonArrayStorageABI.abi, signer); // <-- .abi 를 추가하세요!
   server.log.info(`Connected to contract at ${contractAddress} via RPC ${rpcUrl}`);
   server.log.info(`Using signer address: ${signer.address}`);
 } catch (error) {
@@ -47,7 +53,6 @@ interface AddJsonBody {
   jsonString: string;
 }
 
-// 응답 스키마 업데이트
 const addJsonOpts: RouteShorthandOptions = {
   schema: {
     body: {
@@ -63,20 +68,10 @@ const addJsonOpts: RouteShorthandOptions = {
         properties: {
           message: { type: 'string' },
           transactionHash: { type: 'string' },
-          blockHash: { type: 'string' },         // 추가
-          blockNumber: { type: 'number' },       // 추가
-          gasUsed: { type: 'string' },           // 추가 (BigNumber.toString() 형태)
-          // newIndex: { type: 'number' } // 필요시 이벤트 파싱
+          // newIndex: { type: 'number' } // 필요시 트랜잭션 결과에서 인덱스 파싱
         }
       },
-      // 500 등 다른 응답 스키마
-      500: {
-        type: 'object',
-        properties: {
-          error: { type: 'string' },
-          details: { type: 'string' }
-        }
-      }
+      // 다른 응답 스키마 추가 가능 (e.g., 400 Bad Request, 500 Internal Server Error)
     }
   }
 };
@@ -85,53 +80,34 @@ server.post<{ Body: AddJsonBody }>('/jsons', addJsonOpts, async (request, reply)
   const { jsonString } = request.body;
   try {
     server.log.info(`Attempting to add JSON string: "${jsonString.substring(0, 50)}..."`);
-
+    // 컨트랙트 함수 호출 (트랜잭션 전송)
     const tx: ContractTransactionResponse = await contract.addJsonString(jsonString);
-    server.log.info(`Transaction sent: ${tx.hash}. Waiting for confirmation...`);
+    server.log.info(`Transaction sent: ${tx.hash}`);
 
-    // 트랜잭션이 마이닝될 때까지 기다리고 결과(영수증) 확인
-    const receipt: TransactionReceipt | null = await tx.wait(); // tx.wait()는 null을 반환할 수 있음 (ethers v6 기준, v5는 TransactionReceipt)
-    // ethers v5에서 tx.wait()는 보통 null을 반환하지 않지만, 타입 안전성을 위해 확인
-
-    if (!receipt) {
-      server.log.error(`Transaction ${tx.hash} failed to confirm or receipt is null.`);
-      return reply.status(500).send({
-        error: 'Transaction failed to confirm.',
-        details: `Receipt was null for transaction ${tx.hash}`
-      });
-    }
-
-    server.log.info(`Transaction ${tx.hash} confirmed in block: ${receipt.blockNumber}`);
-
+    // (선택 사항) 트랜잭션이 마이닝될 때까지 기다리고 결과 확인
+    // const receipt = await tx.wait();
+    // server.log.info(`Transaction mined in block: ${receipt?.blockNumber}`);
     // 여기서 이벤트 로그를 파싱하여 newIndex를 얻을 수도 있습니다.
-    // 예: receipt.logs.forEach(log => { /* ... */ });
 
     return {
-      message: 'JSON string added and transaction confirmed.',
-      transactionHash: receipt.hash, // 영수증의 hash 사용 (동일하지만 명시적)
-      blockHash: receipt.blockHash,
-      blockNumber: receipt.blockNumber,
-      gasUsed: receipt.gasUsed.toString() // gasUsed는 BigNumber이므로 문자열로 변환
+      message: 'JSON string added successfully. Transaction sent.',
+      transactionHash: tx.hash
     };
   } catch (error: any) {
-    server.log.error('Error calling addJsonString or waiting for receipt:', error);
-    const errorMessage = error.reason || error.message || "An unknown error occurred";
-    // revert된 트랜잭션의 경우 error 객체에 정보가 있을 수 있음
-    if (error.receipt) { // 트랜잭션이 revert된 경우 receipt 정보가 있을 수 있음
-      server.log.error('Transaction reverted. Receipt:', error.receipt);
-    }
-    reply.status(500).send({ error: 'Failed to add JSON string', details: errorMessage });
+    server.log.error('Error calling addJsonString:', error);
+    // 가스 부족, revert 등 다양한 오류 가능
+    reply.status(500).send({ error: 'Failed to add JSON string', details: error.message });
   }
 });
 
-// 2. 저장된 JSON 개수 조회 (Read Operation) - 변경 없음
+// 2. 저장된 JSON 개수 조회 (Read Operation)
 const getCountOpts: RouteShorthandOptions = {
   schema: {
     response: {
       200: {
         type: 'object',
         properties: {
-          count: { type: 'number' }
+          count: { type: 'number' } // BigInt를 숫자로 변환하여 반환
         }
       }
     }
@@ -141,8 +117,8 @@ const getCountOpts: RouteShorthandOptions = {
 server.get('/jsons/count', getCountOpts, async (request, reply) => {
   try {
     const countBigInt: bigint = await contract.getJsonCount();
-    const count = Number(countBigInt);
-    server.log.info(`Retrieved JSON count: ${count}`); // 로그 메시지 수정
+    const count = Number(countBigInt); // JSON 응답을 위해 숫자로 변환 (매우 큰 수는 BigInt로 유지 필요)
+    server.log.info(`Workspaceed JSON count: ${count}`);
     return { count };
   } catch (error: any) {
     server.log.error('Error calling getJsonCount:', error);
@@ -150,7 +126,7 @@ server.get('/jsons/count', getCountOpts, async (request, reply) => {
   }
 });
 
-// 3. 특정 인덱스의 JSON 문자열 조회 (Read Operation) - 변경 없음
+// 3. 특정 인덱스의 JSON 문자열 조회 (Read Operation)
 interface GetJsonParams {
   index: string;
 }
@@ -160,7 +136,7 @@ const getJsonByIndexOpts: RouteShorthandOptions = {
     params: {
       type: 'object',
       properties: {
-        index: { type: 'string', pattern: '^[0-9]+$' }
+        index: { type: 'string', pattern: '^[0-9]+$' } // 숫자 문자열 검증
       }
     },
     response: {
@@ -184,23 +160,22 @@ const getJsonByIndexOpts: RouteShorthandOptions = {
 server.get<{ Params: GetJsonParams }>('/jsons/:index', getJsonByIndexOpts, async (request, reply) => {
   const index = parseInt(request.params.index, 10);
   if (isNaN(index) || index < 0) {
-    return reply.status(400).send({ error: 'Invalid index provided. Must be a non-negative integer.' });
+      return reply.status(400).send({ error: 'Invalid index provided. Must be a non-negative integer.' });
   }
 
   try {
     server.log.info(`Attempting to get JSON string at index: ${index}`);
+    // getJsonStringByIndex 함수 호출 (또는 public getter 사용 가능: contract.storedJsonStrings(index))
     const jsonString: string = await contract.getJsonStringByIndex(index);
     server.log.info(`Found JSON string at index ${index}: "${jsonString.substring(0, 50)}..."`);
     return { index, jsonString };
   } catch (error: any) {
+    // 컨트랙트에서 require 실패 시 (Index out of bounds 등) 에러 발생
     server.log.error(`Error calling getJsonStringByIndex for index ${index}:`, error);
-    // ethers v5에서 revert 이유는 error.reason 또는 error.error.message 등에 있을 수 있음
-    // 보다 정확한 revert 이유를 확인하려면 error 객체를 자세히 조사해야 함
-    const revertReason = error.reason || (error.error && error.error.message) || error.message;
-    if (revertReason && revertReason.includes("Index out of bounds")) {
+    if (error.message.includes("Index out of bounds")) { // 에러 메시지 기반 처리 (더 나은 방법은 contract call revert 이유 확인)
       reply.status(404).send({ error: `JSON string not found at index ${index}` });
     } else {
-      reply.status(500).send({ error: 'Failed to get JSON string', details: revertReason });
+      reply.status(500).send({ error: 'Failed to get JSON string', details: error.message });
     }
   }
 });
@@ -208,8 +183,8 @@ server.get<{ Params: GetJsonParams }>('/jsons/:index', getJsonByIndexOpts, async
 // --- 서버 시작 ---
 const start = async () => {
   try {
-    await server.listen({ port: port, host: '0.0.0.0' });
-    // server.log.info(`Server listening on port ${port}`); // listen에서 이미 로그 출력
+    await server.listen({ port: port, host: '0.0.0.0' }); // 모든 IP에서 접속 허용
+    server.log.info(`Server listening on port ${port}`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

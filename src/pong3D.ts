@@ -1,10 +1,9 @@
 import * as BABYLON from '@babylonjs/core';
 
-
 const canvas3D = document.getElementById('renderCanvasPong3D') as HTMLCanvasElement | null; // Type assertion
+
 let engine3D: BABYLON.Engine | null = null; // Initialize as null, will be set later
 
-// Ensure these elements exist in your HTML or handle potential nulls
 const player1NameInput3D = document.getElementById('player1Name3D') as HTMLInputElement;
 const player2NameInput3D = document.getElementById('player2Name3D') as HTMLInputElement;
 const roundsSelect3D = document.getElementById('rounds3D') as HTMLSelectElement;
@@ -19,7 +18,6 @@ const messageArea3D_el = document.getElementById('messageArea3D') as HTMLElement
 const roundInfoDisplay3D_el = document.getElementById('roundInfoDisplay3D') as HTMLElement;
 const settingsPanel_el = document.getElementById('settingsPanel') as HTMLElement;
 
-
 // Game state enum
 enum GameState3D {
     LOBBY,
@@ -28,6 +26,16 @@ enum GameState3D {
     ROUND_OVER,
     GAME_OVER
 }
+
+interface GameResult {
+    player1Name: string;
+    player2Name: string;
+    player1Score: number;
+    player2Score: number;
+    winner: string; // Winner's name or '무승부' for a draw
+    gameEndTime: string; // ISO 8601 timestamp
+}
+
 
 // Game variables with types
 let scene3D: BABYLON.Scene | null = null; // Initialize as null
@@ -59,12 +67,11 @@ const COURT_HEIGHT_3D = 12;
 const COURT_DEPTH_3D = 10; // Not directly used for ground dimensions now, but kept for context
 const PADDLE_SPEED_3D = 0.3;
 const BASE_BALL_SPEED_X_3D = 0.15;
-let ballVelocity3D: BABYLON.Vector3 = new BABYLON.Vector3(0, 0, 0);
 
+let ballVelocity3D: BABYLON.Vector3 = new BABYLON.Vector3(0, 0, 0);
 let inputMap3D: {[key: string]: boolean} = {}; // Or {[key: string]: boolean}
 let roundTimerInterval3D: number | undefined; // Stores the interval ID from setInterval
 let shadowGenerator3D: BABYLON.ShadowGenerator | null = null;
-
 
 function createScene3D_func(): BABYLON.Scene {
     if (!engine3D) { // Check if engine3D is truly initialized
@@ -73,59 +80,47 @@ function createScene3D_func(): BABYLON.Scene {
     }
     const newScene = new BABYLON.Scene(engine3D);
     newScene.clearColor = new BABYLON.Color4(0.05, 0.05, 0.1, 1); // Ensure alpha is 1
-
     camera3D = new BABYLON.UniversalCamera("gameCamera3D", new BABYLON.Vector3(0, 5, -22), newScene);
     camera3D.setTarget(new BABYLON.Vector3(0, 0, 0));
     camera3D.fov = 0.7;
-
     const light3D_scene = new BABYLON.HemisphericLight("light1_3D_scene", new BABYLON.Vector3(0, 1, 0), newScene);
     light3D_scene.intensity = 0.6;
-
     const dirLight3D_scene = new BABYLON.DirectionalLight("dirLight_3D_scene", new BABYLON.Vector3(-0.5, -1, -1), newScene);
     dirLight3D_scene.intensity = 0.7;
     dirLight3D_scene.position = new BABYLON.Vector3(10, 20, 20);
-
     const paddleMaterial1_3D = new BABYLON.StandardMaterial("paddleMat1_3D", newScene);
     paddleMaterial1_3D.diffuseColor = new BABYLON.Color3(0.3, 0.6, 0.9);
     paddleMaterial1_3D.emissiveColor = new BABYLON.Color3(0.1, 0.25, 0.4);
     player1Paddle3D = BABYLON.MeshBuilder.CreateBox("player1Paddle3D", { height: PADDLE_HEIGHT_3D, width: PADDLE_WIDTH_3D, depth: PADDLE_DEPTH_3D }, newScene);
     player1Paddle3D.material = paddleMaterial1_3D;
     player1Paddle3D.position = new BABYLON.Vector3(-COURT_WIDTH_3D / 2 + 1, 0, 0);
-
     const paddleMaterial2_3D = new BABYLON.StandardMaterial("paddleMat2_3D", newScene);
     paddleMaterial2_3D.diffuseColor = new BABYLON.Color3(0.9, 0.4, 0.4);
     paddleMaterial2_3D.emissiveColor = new BABYLON.Color3(0.4, 0.15, 0.15);
     player2Paddle3D = BABYLON.MeshBuilder.CreateBox("player2Paddle3D", { height: PADDLE_HEIGHT_3D, width: PADDLE_WIDTH_3D, depth: PADDLE_DEPTH_3D }, newScene);
     player2Paddle3D.material = paddleMaterial2_3D;
     player2Paddle3D.position = new BABYLON.Vector3(COURT_WIDTH_3D / 2 - 1, 0, 0);
-
     const ballMaterial3D = new BABYLON.StandardMaterial("ballMat3D", newScene);
     ballMaterial3D.diffuseColor = new BABYLON.Color3(1, 1, 0.3);
     ballMaterial3D.emissiveColor = new BABYLON.Color3(0.6, 0.6, 0.1);
     ball3D = BABYLON.MeshBuilder.CreateSphere("ball3D", { diameter: BALL_RADIUS_3D * 2, segments: 16 }, newScene);
     ball3D.material = ballMaterial3D;
     ball3D.position = new BABYLON.Vector3(0, 0, 0);
-
     const wallMaterial3D = new BABYLON.StandardMaterial("wallMat3D", newScene);
     wallMaterial3D.diffuseColor = new BABYLON.Color3(0.6, 0.6, 0.7);
     wallMaterial3D.alpha = 0.6;
-
     topWall3D = BABYLON.MeshBuilder.CreateBox("topWall3D", { width: COURT_WIDTH_3D, height: 0.3, depth: PADDLE_DEPTH_3D }, newScene);
     topWall3D.position = new BABYLON.Vector3(0, COURT_HEIGHT_3D / 2 + BALL_RADIUS_3D, 0);
     topWall3D.material = wallMaterial3D;
-
     bottomWall3D = BABYLON.MeshBuilder.CreateBox("bottomWall3D", { width: COURT_WIDTH_3D, height: 0.3, depth: PADDLE_DEPTH_3D }, newScene);
     bottomWall3D.position = new BABYLON.Vector3(0, -COURT_HEIGHT_3D / 2 - BALL_RADIUS_3D, 0);
     bottomWall3D.material = wallMaterial3D;
-
     ground3D = BABYLON.MeshBuilder.CreateGround("ground3D", { width: COURT_WIDTH_3D, height: COURT_DEPTH_3D * 1.5 }, newScene); // Using COURT_DEPTH_3D for ground depth
     ground3D.position.y = -COURT_HEIGHT_3D / 2 - BALL_RADIUS_3D - 0.2;
 
-    // Apply a simple StandardMaterial to the ground
     const groundMaterialSimple = new BABYLON.StandardMaterial("groundSimpleMat", newScene);
     groundMaterialSimple.diffuseColor = new BABYLON.Color3(0.3, 0.3, 0.4); // Example color
     ground3D.material = groundMaterialSimple;
-
     ground3D.receiveShadows = true;
 
     if (dirLight3D_scene) { // Ensure light exists before creating shadow generator
@@ -136,7 +131,6 @@ function createScene3D_func(): BABYLON.Scene {
     }
     return newScene; // Return the newly created scene
 }
-
 
 function setupInput3D_func() {
     if (!scene3D) return; // scene3D can be null, ensure it's checked
@@ -181,7 +175,6 @@ function updatePaddleMovement3D_func() {
     if (inputMap3D["arrowup"]) player2Paddle3D.position.y = Math.min(paddleMaxY, player2Paddle3D.position.y + PADDLE_SPEED_3D);
     if (inputMap3D["arrowdown"]) player2Paddle3D.position.y = Math.max(paddleMinY, player2Paddle3D.position.y - PADDLE_SPEED_3D);
 }
-
 
 function updateBallMovement3D_func() {
     if (gameState3D_val !== GameState3D.PLAYING || !ball3D || !player1Paddle3D || !player2Paddle3D) return;
@@ -236,7 +229,6 @@ function resetBallAndState3D_func(nextState: GameState3D = GameState3D.PLAYING) 
     setGameState3D_func(nextState);
 }
 
-
 function updateScoreboard3D_func() {
     if (scorePlayer1Display3D_el) scorePlayer1Display3D_el.textContent = `${p1Name3D}: ${scoreP1_3D}`;
     if (scorePlayer2Display3D_el) scorePlayer2Display3D_el.textContent = `${p2Name3D}: ${scoreP2_3D}`;
@@ -249,19 +241,55 @@ function updateTimerDisplay3D_func() {
     if (timerDisplay3D_el) timerDisplay3D_el.textContent = `시간: ${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
 }
 
+function displayMessage3D_func(msg: string, duration: number = 0, isEmphasized: boolean = false) {
+    if (messageArea3D_el) {
+        messageArea3D_el.textContent = msg;
+        messageArea3D_el.classList.remove('invisible'); // Make visible
 
-function displayMessage3D_func(msg: string, duration: number = 0) {
-    if (messageArea3D_el) messageArea3D_el.textContent = msg;
+        // Define base and emphasis text style classes (Tailwind CSS)
+        const baseTextClasses = ['text-lg', 'font-bold', 'text-slate-100'];
+        const emphasisTextClasses = ['text-6xl', 'font-extrabold', 'text-amber-400']; // Example: Very large, extra bold, amber color
 
-    if (duration > 0) {
-        setTimeout(() => {
-            if (messageArea3D_el && messageArea3D_el.textContent === msg) { // Clear only if message hasn't changed
-                messageArea3D_el.textContent = (gameState3D_val >= GameState3D.GAME_OVER) ? "새 게임을 시작하려면 설정을 조정하고 시작 버튼을 누르세요." : "";
-            }
-        }, duration);
+        // Remove all managed text styling classes first to ensure a clean slate
+        messageArea3D_el.classList.remove(...baseTextClasses, ...emphasisTextClasses);
+
+        if (isEmphasized) {
+            messageArea3D_el.classList.add(...emphasisTextClasses);
+        } else {
+            messageArea3D_el.classList.add(...baseTextClasses);
+        }
+
+        if (duration > 0) {
+            setTimeout(() => {
+                // Check if the message is still the one we set and haven't been overwritten
+                if (messageArea3D_el && messageArea3D_el.textContent === msg) {
+                    const defaultLobbyMessage = "새 게임을 시작하려면 설정을 조정하고 시작 버튼을 누르세요.";
+                    // Determine what the default message should be based on current game state
+                    const currentDefaultMessage = (gameState3D_val === GameState3D.LOBBY || gameState3D_val === GameState3D.GAME_OVER)
+                        ? defaultLobbyMessage
+                        : ""; // Empty if in active game phases (PLAYING, ROUND_OVER, COUNTDOWN)
+
+                    messageArea3D_el.textContent = currentDefaultMessage;
+
+                    // Reset classes to default text style
+                    messageArea3D_el.classList.remove(...emphasisTextClasses);
+                    messageArea3D_el.classList.add(...baseTextClasses);
+
+                    if (!currentDefaultMessage) { // If there's no default message (e.g., during PLAYING), hide the area
+                        messageArea3D_el.classList.add('invisible');
+                    } else {
+                        messageArea3D_el.classList.remove('invisible'); // Ensure visible if there is a default message
+                    }
+                }
+            }, duration);
+        } else if (!msg) { // If called with an empty message and no duration (e.g. to clear it immediately)
+            messageArea3D_el.classList.add('invisible');
+            // Reset classes to default text style
+            messageArea3D_el.classList.remove(...emphasisTextClasses);
+            messageArea3D_el.classList.add(...baseTextClasses);
+        }
     }
 }
-
 
 function setGameState3D_func(newState: GameState3D) {
     gameState3D_val = newState;
@@ -269,7 +297,6 @@ function setGameState3D_func(newState: GameState3D) {
     if (quitGameButton3D_el) quitGameButton3D_el.style.display = (newState !== GameState3D.LOBBY && newState !== GameState3D.GAME_OVER) ? 'inline-block' : 'none';
     if (startGameButton3D_el) startGameButton3D_el.style.display = (newState === GameState3D.LOBBY || newState === GameState3D.GAME_OVER) ? 'inline-block' : 'none';
     if (settingsPanel_el) settingsPanel_el.style.display = (newState === GameState3D.LOBBY || newState === GameState3D.GAME_OVER) ? 'grid' : 'none';
-
 
     switch (gameState3D_val) {
         case GameState3D.LOBBY:
@@ -285,15 +312,27 @@ function setGameState3D_func(newState: GameState3D) {
             if (player1Paddle3D) player1Paddle3D.position.y = 0;
             if (player2Paddle3D) player2Paddle3D.position.y = 0;
             break;
+        // Inside setGameState3D_func(newState: GameState3D)
+// ...
         case GameState3D.COUNTDOWN:
             if (ball3D) ball3D.isVisible = true;
-            displayMessage3D_func("준비...", 1000);
-            setTimeout(() => displayMessage3D_func("3", 1000), 1000);
-            setTimeout(() => displayMessage3D_func("2", 1000), 2000);
-            setTimeout(() => displayMessage3D_func("1", 1000), 3000);
+            displayMessage3D_func("준비...", 1000, false); // "준비..." in normal style
+
+            setTimeout(() => {
+                if (gameState3D_val === GameState3D.COUNTDOWN) displayMessage3D_func("3", 1000, true);
+            }, 1000); // "3" emphasized
+
+            setTimeout(() => {
+                if (gameState3D_val === GameState3D.COUNTDOWN) displayMessage3D_func("2", 1000, true);
+            }, 2000); // "2" emphasized
+
+            setTimeout(() => {
+                if (gameState3D_val === GameState3D.COUNTDOWN) displayMessage3D_func("1", 1000, true);
+            }, 3000); // "1" emphasized
+
             setTimeout(() => {
                 if (gameState3D_val === GameState3D.COUNTDOWN) { // Ensure still in countdown
-                    displayMessage3D_func("시작!", 1000);
+                    displayMessage3D_func("시작!", 1000, true); // "시작!" emphasized
                     setGameState3D_func(GameState3D.PLAYING);
                 }
             }, 4000);
@@ -347,7 +386,6 @@ function resetGameStats3D_func() {
     // currentRound3D_val is reset in startGameTrigger3D
 }
 
-
 function startNewRound3D_func() {
     currentRound3D_val++;
     if (currentRound3D_val > totalRounds3D_val && totalRounds3D_val > 0) {
@@ -367,7 +405,6 @@ function startNewRound3D_func() {
     resetBallAndState3D_func(GameState3D.COUNTDOWN);
 }
 
-
 function startRoundTimer3D_func() {
     if (roundTimerInterval3D) clearInterval(roundTimerInterval3D);
     roundTimerInterval3D = window.setInterval(() => {
@@ -381,7 +418,6 @@ function startRoundTimer3D_func() {
     }, 1000);
 }
 
-
 function endRound3D_func() {
     setGameState3D_func(GameState3D.ROUND_OVER);
     let roundWinnerMsg = "시간 종료! ";
@@ -391,19 +427,39 @@ function endRound3D_func() {
     displayMessage3D_func(`라운드 ${currentRound3D_val} - ${roundWinnerMsg}`, 3000);
 }
 
-
 function determineGameWinner3D_func() {
-    let winnerMsg: string;
-    if (scoreP1_3D > scoreP2_3D) winnerMsg = `${p1Name3D}! (총점 ${scoreP1_3D} vs ${scoreP2_3D})`;
-    else if (scoreP2_3D > scoreP1_3D) winnerMsg = `${p2Name3D}! (총점 ${scoreP2_3D} vs ${scoreP1_3D})`;
-    else winnerMsg = `무승부! (총점 ${scoreP1_3D} vs ${scoreP2_3D})`;
+    const gameResultData = generateGameResultJson_func();
+    console.log("경기 결과 (JSON 객체):", gameResultData);
 
-    displayMessage3D_func(`최종 승리: ${winnerMsg}`, 5000);
+    // Asynchronously send the game result to the server
+    // We don't necessarily need to await this if we don't want to block UI updates,
+    // but the sendGameResultToServer_func will provide its own UI feedback.
+    sendGameResultToServer_func(gameResultData);
+
+    // --- Existing logic for displaying the winner message ---
+    let gameOutcomeMessage: string;
+    if (scoreP1_3D > scoreP2_3D) {
+        gameOutcomeMessage = `${p1Name3D} WINNER! (총점 ${scoreP1_3D} vs ${scoreP2_3D})`;
+    } else if (scoreP2_3D > scoreP1_3D) {
+        gameOutcomeMessage = `${p2Name3D} WINNER! (총점 ${scoreP2_3D} vs ${scoreP1_3D})`;
+    } else {
+        gameOutcomeMessage = `무승부! (총점 ${scoreP1_3D} vs ${scoreP2_3D})`;
+    }
+
+    const finalMessage = `END - ${gameOutcomeMessage}`;
+    // Display the game end message. The save status message might briefly overwrite this or appear after.
+    // Consider the order or how you want to manage these messages.
+    // For now, the game end message will show, and then the save status might update it.
+    displayMessage3D_func(finalMessage, 5000);
+    // --- End of existing logic ---
+
+    // Timeout to return to lobby (this should probably be longer or after save confirmation if critical)
     setTimeout(() => {
-        if (gameState3D_val === GameState3D.GAME_OVER) setGameState3D_func(GameState3D.LOBBY); // Return to lobby
-    }, 5000);
+        if (gameState3D_val === GameState3D.GAME_OVER) {
+            setGameState3D_func(GameState3D.LOBBY);
+        }
+    }, 5000); // This timeout is independent of the save operation finishing
 }
-
 
 function initGame3D_func() {
     if (!canvas3D) {
@@ -431,7 +487,6 @@ function initGame3D_func() {
         return;
     }
 
-
     // Render loop management
     // Check if a render loop is already running for this engine.
     // This is a simplified check. A more robust way might involve a flag.
@@ -447,11 +502,86 @@ function initGame3D_func() {
         });
     }
 
-
     window.addEventListener('resize', () => {
         if (engine3D) engine3D.resize();
     });
 }
+
+function generateGameResultJson_func(): GameResult {
+    let determinedWinner: string;
+
+    if (scoreP1_3D > scoreP2_3D) {
+        determinedWinner = p1Name3D;
+    } else if (scoreP2_3D > scoreP1_3D) {
+        determinedWinner = p2Name3D;
+    } else {
+        determinedWinner = "무승부"; // "Draw" in Korean
+    }
+
+    const gameEndTimeISO = new Date().toISOString();
+
+    const gameData: GameResult = {
+        player1Name: p1Name3D,
+        player2Name: p2Name3D,
+        player1Score: scoreP1_3D,
+        player2Score: scoreP2_3D,
+        winner: determinedWinner,
+        gameEndTime: gameEndTimeISO,
+    };
+
+    return gameData;
+}
+
+async function sendGameResultToServer_func(gameResult: GameResult): Promise<void> {
+    const gameResultJsonString = JSON.stringify(gameResult);
+    // Adjust this URL if your backend server runs on a different host or port
+    const backendUrl = 'http://localhost:3000/jsons';
+
+    // The backend expects the JSON string to be wrapped in an object like: { "jsonString": "..." }
+    const requestBody = {
+        jsonString: gameResultJsonString
+    };
+
+    try {
+        if (messageArea3D_el) { // Optionally indicate saving is in progress
+            displayMessage3D_func('경기 결과 저장 중...', 0); // 0 duration means it stays until replaced
+        }
+        console.log(`Sending game result to server: ${JSON.stringify(requestBody)}`);
+
+        const response = await fetch(backendUrl, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(requestBody),
+        });
+
+        if (response.ok) {
+            const responseData = await response.json();
+            console.log('Game result successfully sent to server and confirmed on blockchain:', responseData);
+            // Display success message to the user
+            displayMessage3D_func(`결과 저장 성공! Tx: ${responseData.transactionHash.substring(0, 10)}...`, 4000);
+        } else {
+            // Try to parse error response from server
+            let errorDetails = `Server responded with status: ${response.status}`;
+            try {
+                const errorData = await response.json();
+                errorDetails = errorData.details || errorData.error || errorDetails;
+            } catch (e) {
+                // Could not parse JSON error, stick with status text
+                errorDetails = response.statusText || errorDetails;
+            }
+            console.error('Failed to send game result to server:', errorDetails);
+            // Display error message to the user
+            displayMessage3D_func(`결과 저장 실패: ${errorDetails}`, 4000);
+        }
+    } catch (error: any) {
+        console.error('Network or other error sending game result to server:', error);
+        // Display network error message to the user
+        displayMessage3D_func(`결과 저장 중 오류 발생: ${error.message || '네트워크 연결 확인'}`, 4000);
+    }
+}
+
 
 // Event Listeners for UI
 if (startGameButton3D_el) {
@@ -483,7 +613,6 @@ if (startGameButton3D_el) {
     });
 }
 
-
 if (quitGameButton3D_el) {
     quitGameButton3D_el.addEventListener('click', () => {
         if (gameState3D_val !== GameState3D.LOBBY && gameState3D_val !== GameState3D.GAME_OVER) {
@@ -495,24 +624,16 @@ if (quitGameButton3D_el) {
     });
 }
 
-
-// Initialize game on DOMContentLoaded
 document.addEventListener('DOMContentLoaded', () => {
-    // Ensure UI elements are present (though already asserted with 'as')
-    // Values from UI
     if (player1NameInput3D) p1Name3D = player1NameInput3D.value || "플레이어 1";
     if (player2NameInput3D) p2Name3D = player2NameInput3D.value || "플레이어 2";
     if (roundsSelect3D) totalRounds3D_val = parseInt(roundsSelect3D.value);
     if (roundDurationInput3D) roundTimeLimit3D_val = parseInt(roundDurationInput3D.value) || 60;
-
     setGameState3D_func(GameState3D.LOBBY); // Initial game state
-
-    // Initialize engine and scene if canvas is visible/available
-    // The canvas visibility check (offsetParent !== null) might be too restrictive
-    // depending on CSS. A simple check for canvas3D existence is often enough here.
     if (canvas3D) {
         initGame3D_func(); // This will create engine and scene if not already done
     } else {
         console.error("renderCanvasPong3D not found on DOMContentLoaded.");
     }
 });
+

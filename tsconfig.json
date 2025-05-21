@@ -1,25 +1,31 @@
+// tsconfig.json
 {
   "compilerOptions": {
-    "target": "ES6",                     /* 컴파일될 JavaScript 버전 (ES6는 대부분의 최신 브라우저에서 지원) */
-    "module": "ESNext",                  /* 모듈 시스템 (최신 ES 모듈 사용) */
+    "target": "ES6", // 또는 "ES2017", "ES2020" 등 프론트엔드 대상 환경에 맞게
+    "module": "ESNext",
     "lib": [
-      "dom",        // DOM API (document, window 등) 타입 지원
-      "es2017"      // ES2017 표준 라이브러리 지원 (padStart 포함, ES2016의 includes도 포함)
+      "dom",        // <<<--- 이 부분을 추가하거나 확인하세요!
+      "dom.iterable", // (선택 사항) for...of 루프 등을 DOM 컬렉션에 사용하려면 추가
+      "es2017"      // (또는 최신 ECMAScript 버전)
     ],
-    "outDir": "./dist",                  /* 컴파일된 JS 파일이 저장될 디렉토리 */
-    "rootDir": "./src",                  /* TypeScript 소스 파일이 있는 루트 디렉토리 */
-    "strict": true,                      /* 모든 엄격한 타입-검사 옵션 활성화 */
-    "esModuleInterop": true,             /* ES 모듈과 CommonJS 모듈 간의 상호 운용성 활성화 */
-    "skipLibCheck": true,                /* 모든 선언 파일(*.d.ts)의 타입 검사 스킵 */
-    "forceConsistentCasingInFileNames": true, /* 파일 이름의 대소문자 일관성 강제 */
-    "sourceMap": true,                   /* 디버깅을 위한 .map 파일 생성 */
-    "moduleResolution": "node"           /* 모듈 해석 전략: 'node' 또는 'classic' */
+    "outDir": "./dist", // 프론트엔드 JS 출력 경로 예시 (백엔드와 구분 권장)
+    "rootDir": "./src",    // 또는 프론트엔드 소스 경로
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "sourceMap": true,
+    "moduleResolution": "node", // 프론트엔드에서는 "bundler" 또는 "node"도 괜찮음
+    "resolveJsonModule": true
   },
   "include": [
-    "src/**/*"                           /* 컴파일할 파일 또는 폴더 패턴 */
+    "src/app.ts",         // 프론트엔드 파일들을 명시하거나
+    "src/blockdata.ts",
+    "src/pong3D.ts"
+    // 또는 "src/frontend/**/*" 와 같이 폴더 지정
   ],
   "exclude": [
-    "node_modules",                      /* 컴파일에서 제외할 폴더 */
-    "**/*.spec.ts"                       /* 테스트 파일 제외 (예시) */
+    "node_modules",
+    "src/server.ts"       // 백엔드 서버 파일은 이 설정에서 제외 (별도 tsconfig 사용 권장)
   ]
 }

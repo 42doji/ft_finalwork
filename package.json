@@ -1,12 +1,13 @@
 {
-  "name": "tournament",
+  "name": "ft_finalwork",
   "version": "1.0.0",
+  "type": "module",
   "description": "Tournament Bracket Generator",
   "main": "dist/app.js",
   "scripts": {
     "build": "tsc",
-    "watch": "tsc --watch",
-    "start": "npm run watch"
+    "dev": "tsc && node dist/server.js",
+    "start": "node dist/server.js"
   },
   "keywords": [
     "tournament",
@@ -17,11 +18,18 @@
   "author": "doji",
   "license": "ISC",
   "devDependencies": {
+    "@types/dotenv": "^6.1.1",
+    "@types/node": "^22.15.21",
     "typescript": "^5.0.0"
   },
   "dependencies": {
     "@babylonjs/core": "^8.8.5",
+    "@babylonjs/gui": "^8.8.5",
     "@babylonjs/materials": "^8.8.5",
-    "babylonjs": "^8.7.1"
+    "@fastify/cors": "^11.0.1",
+    "babylonjs": "^8.7.1",
+    "dotenv": "^16.5.0",
+    "ethers": "^6.14.1",
+    "fastify": "^5.3.3"
   }
 }

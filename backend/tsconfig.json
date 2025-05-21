@@ -17,6 +17,9 @@
     "start": "node dist/server.js"                      // 빌드된 결과 실행
     // "dev": "nodemon server.ts"                      // 개발용 스크립트 (선택 사항)
   },
-  "include": ["server.ts"],   // <--- 중요: 컴파일할 파일 지정 (루트의 server.ts)
+  "include": [
+    "src/**/*",
+    "server.ts"/* 컴파일할 파일 또는 폴더 패턴 */
+  ],  // <--- 중요: 컴파일할 파일 지정 (루트의 server.ts)
   "exclude": ["node_modules"] // node_modules 폴더는 컴파일에서 제외
 }
