@@ -431,12 +431,9 @@ function determineGameWinner3D_func() {
     const gameResultData = generateGameResultJson_func();
     console.log("경기 결과 (JSON 객체):", gameResultData);
 
-    // Asynchronously send the game result to the server
-    // We don't necessarily need to await this if we don't want to block UI updates,
-    // but the sendGameResultToServer_func will provide its own UI feedback.
     sendGameResultToServer_func(gameResultData);
 
-    // --- Existing logic for displaying the winner message ---
+
     let gameOutcomeMessage: string;
     if (scoreP1_3D > scoreP2_3D) {
         gameOutcomeMessage = `${p1Name3D} WINNER! (총점 ${scoreP1_3D} vs ${scoreP2_3D})`;
@@ -447,18 +444,14 @@ function determineGameWinner3D_func() {
     }
 
     const finalMessage = `END - ${gameOutcomeMessage}`;
-    // Display the game end message. The save status message might briefly overwrite this or appear after.
-    // Consider the order or how you want to manage these messages.
-    // For now, the game end message will show, and then the save status might update it.
-    displayMessage3D_func(finalMessage, 5000);
-    // --- End of existing logic ---
 
-    // Timeout to return to lobby (this should probably be longer or after save confirmation if critical)
+    displayMessage3D_func(finalMessage, 5000);
+
     setTimeout(() => {
         if (gameState3D_val === GameState3D.GAME_OVER) {
             setGameState3D_func(GameState3D.LOBBY);
         }
-    }, 5000); // This timeout is independent of the save operation finishing
+    }, 5000);
 }
 
 function initGame3D_func() {
@@ -467,16 +460,14 @@ function initGame3D_func() {
         return;
     }
 
-    // Initialize engine only if it hasn't been initialized yet
+
     if (!engine3D) {
         engine3D = new BABYLON.Engine(canvas3D, true);
     }
 
-    // Initialize scene only if it hasn't been initialized yet
-    // And ensure engine is available
     if (!scene3D && engine3D) {
-        scene3D = createScene3D_func(); // scene3D is assigned here
-        if (scene3D) { // Check if scene was successfully created
+        scene3D = createScene3D_func();
+        if (scene3D) {
             setupInput3D_func();
         } else {
             console.error("Scene could not be created.");
@@ -487,16 +478,13 @@ function initGame3D_func() {
         return;
     }
 
-    // Render loop management
-    // Check if a render loop is already running for this engine.
-    // This is a simplified check. A more robust way might involve a flag.
     if (engine3D && engine3D.activeRenderLoops && engine3D.activeRenderLoops.length === 0) {
         engine3D.runRenderLoop(() => {
             if (gameState3D_val === GameState3D.PLAYING) {
                 updatePaddleMovement3D_func();
                 updateBallMovement3D_func();
             }
-            if (scene3D) { // Ensure scene exists before rendering
+            if (scene3D) {
                 scene3D.render();
             }
         });
@@ -515,7 +503,7 @@ function generateGameResultJson_func(): GameResult {
     } else if (scoreP2_3D > scoreP1_3D) {
         determinedWinner = p2Name3D;
     } else {
-        determinedWinner = "무승부"; // "Draw" in Korean
+        determinedWinner = "무승부";
     }
 
     const gameEndTimeISO = new Date().toISOString();
