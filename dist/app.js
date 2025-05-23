@@ -8,44 +8,56 @@ const generateBracketButton = document.getElementById('generateBracketButton');
 const bracketContainer = document.getElementById('bracketContainer');
 const participantErrorMessage = document.getElementById('participantErrorMessage');
 const tournamentWinnerMessage = document.getElementById('tournamentWinnerMessage');
+// HTML 문자열을 안전하게 처리하기 위한 함수
+function escapeHTML(unsafe) {
+    if (unsafe === null || unsafe === undefined) {
+        return '';
+    }
+    return unsafe
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;")
+        .replace(/'/g, "&#039;");
+}
 // --- Event Listeners ---
-numParticipantsInput.addEventListener('input', () => {
-    const num = parseInt(numParticipantsInput.value);
-    if (validateParticipantCount(num)) {
-        generateParticipantInputs(num);
-        generateBracketButton.disabled = false;
-        if (participantErrorMessage)
-            participantErrorMessage.textContent = '';
-    }
-    else {
-        generateBracketButton.disabled = true;
-        if (participantInputsContainer)
-            participantInputsContainer.innerHTML = '<p class="text-slate-400 text-sm">참가자 수를 먼저 유효하게 선택하세요.</p>';
-    }
-});
-generateBracketButton.addEventListener('click', () => {
-    const participantNames = getParticipantNames();
-    if (participantNames.length > 0) {
-        initializeTournament(participantNames);
-    }
-    else {
-        if (participantErrorMessage)
-            participantErrorMessage.textContent = '모든 참가자 이름을 입력해주세요.';
-    }
-});
+if (numParticipantsInput) {
+    numParticipantsInput.addEventListener('input', () => {
+        const num = parseInt(numParticipantsInput.value);
+        if (validateParticipantCount(num)) {
+            generateParticipantInputs(num);
+            if (generateBracketButton)
+                generateBracketButton.disabled = false;
+            if (participantErrorMessage)
+                participantErrorMessage.textContent = '';
+        }
+        else {
+            if (generateBracketButton)
+                generateBracketButton.disabled = true;
+            if (participantInputsContainer)
+                participantInputsContainer.innerHTML = '<p class="text-slate-400 text-sm">참가자 수를 먼저 유효하게 선택하세요.</p>';
+        }
+    });
+}
+if (generateBracketButton) {
+    generateBracketButton.addEventListener('click', () => {
+        const participantNames = getParticipantNames();
+        if (participantNames.length > 0) {
+            initializeTournament(participantNames);
+        }
+        else {
+            if (participantErrorMessage)
+                participantErrorMessage.textContent = '모든 참가자 이름을 입력해주세요.';
+        }
+    });
+}
 // --- Utility Functions ---
 function validateParticipantCount(num) {
-    if (isNaN(num) || num < 2 || num > 64) {
+    if (isNaN(num) || num < 1 || num > 64) { // 1명 참가자도 허용 (바로 우승)
         if (participantErrorMessage)
-            participantErrorMessage.textContent = '참가자 수는 2명 이상 64명 이하여야 합니다.';
+            participantErrorMessage.textContent = '참가자 수는 1명 이상 64명 이하여야 합니다.';
         return false;
     }
-    // While powers of two are ideal, the logic will handle others with byes.
-    // Forcing power of two:
-    // if ((num & (num - 1)) !== 0) {
-    //     if (participantErrorMessage) participantErrorMessage.textContent = '참가자 수는 2의 거듭제곱이어야 합니다 (2, 4, 8, ...).';
-    //     return false;
-    // }
     if (participantErrorMessage)
         participantErrorMessage.textContent = '';
     return true;
@@ -53,7 +65,7 @@ function validateParticipantCount(num) {
 function generateParticipantInputs(num) {
     if (!participantInputsContainer)
         return;
-    participantInputsContainer.innerHTML = ''; // Clear previous inputs
+    participantInputsContainer.innerHTML = '';
     const fragment = document.createDocumentFragment();
     for (let i = 0; i < num; i++) {
         const inputDiv = document.createElement('div');
@@ -88,7 +100,7 @@ function getParticipantNames() {
             allFilled = false;
         }
     });
-    if (!allFilled) {
+    if (!allFilled && inputs.length > 0) { // 참가자 입력 필드가 하나라도 있으면 모두 채워야 함
         if (participantErrorMessage)
             participantErrorMessage.textContent = '모든 참가자 이름을 입력해주세요.';
         return [];
@@ -105,204 +117,220 @@ function shuffleArray(array) {
     return array;
 }
 // --- Tournament Logic ---
+let initialParticipantCount = 0; // 초기 참가자 수를 저장할 변수
 function initializeTournament(participantNames) {
+    initialParticipantCount = participantNames.length; // 초기 참가자 수 저장
     const shuffledParticipants = shuffleArray([...participantNames]);
     tournamentData = generateBracketData(shuffledParticipants);
     displayBracket(tournamentData);
     if (tournamentWinnerMessage)
         tournamentWinnerMessage.textContent = '';
 }
-function generateBracketData(participants) {
+function generateBracketData(initialParticipants) {
     const rounds = [];
-    let currentParticipants = [...participants];
     let roundIndex = 0;
-    // Calculate number of rounds and total slots for the first round (power of 2)
-    const numPlayers = currentParticipants.length;
-    const totalRounds = Math.ceil(Math.log2(numPlayers));
-    const firstRoundSlots = Math.pow(2, totalRounds); // This is the size of a "full" bracket for this many players
-    const byes = firstRoundSlots - numPlayers;
-    // Distribute byes: players who get a bye advance automatically.
-    // For simplicity in this model, we'll make the first `numPlayers - byes` players play,
-    // and the remaining `byes` players will be paired with actual players if possible,
-    // or effectively get a bye if they are at the end.
-    // A more standard bye distribution is complex; this aims for playability.
-    let playersForNextRound = [...currentParticipants];
-    // Pad with nulls if not a power of two for easier processing, these are essentially byes
-    // that will be resolved.
-    const idealSize = Math.pow(2, Math.ceil(Math.log2(playersForNextRound.length)));
-    while (playersForNextRound.length < idealSize && playersForNextRound.length > 0) { // Add BYEs if not power of 2
-        playersForNextRound.push(BYE_PLAYER_NAME);
+    // playersForCurrentRound 타입을 (string | null)[] 로 명시적 선언
+    let playersForCurrentRound = [...initialParticipants];
+    if (initialParticipants.length === 1) { // 1명 참가 시 바로 우승 처리용 데이터 생성
+        const winnerName = initialParticipants[0];
+        rounds.push({
+            roundId: `round0`,
+            matches: [{
+                    participants: [
+                        { name: winnerName, id: `${escapeHTML(winnerName)}_r0m0p0` },
+                        { name: BYE_PLAYER_NAME, id: `bye_r0m0p1` }
+                    ],
+                    winnerName: winnerName,
+                    matchId: `r0m0`,
+                    isClickable: false,
+                    roundIndex: 0,
+                    matchIndexInRound: 0
+                }]
+        });
+        return rounds;
     }
-    let activePlayersInRound = [...playersForNextRound];
-    while (activePlayersInRound.length > 1 || (activePlayersInRound.length === 1 && roundIndex === 0 && participants.length === 1)) {
-        if (activePlayersInRound.length === 1 && participants.length === 1) { // Single player tournament
-            rounds.push({
-                roundId: `round${roundIndex}`,
-                matches: [{
-                        participants: [
-                            { name: activePlayersInRound[0], id: `${activePlayersInRound[0]}_r${roundIndex}m0p0` },
-                            { name: BYE_PLAYER_NAME, id: `bye_r${roundIndex}m0p1` }
-                        ],
-                        winnerName: activePlayersInRound[0],
-                        matchId: `r${roundIndex}m0`,
-                        isClickable: false,
-                        roundIndex: roundIndex,
-                        matchIndexInRound: 0
-                    }]
-            });
-            break; // Tournament ends
+    // 첫 라운드 참가자 수를 2의 거듭제곱으로 맞추기 (BYE 추가)
+    const firstRoundSlots = Math.pow(2, Math.ceil(Math.log2(playersForCurrentRound.length)));
+    const initialPlayersWithByes = [...playersForCurrentRound];
+    while (initialPlayersWithByes.length < firstRoundSlots && initialPlayersWithByes.length > 0) {
+        initialPlayersWithByes.push(BYE_PLAYER_NAME);
+    }
+    playersForCurrentRound = initialPlayersWithByes; // 타입 일치 (string | null)[]
+    const totalRoundsBasedOnSlots = firstRoundSlots > 1 ? Math.log2(firstRoundSlots) : 1;
+    while (playersForCurrentRound.length > 1 || (playersForCurrentRound.length === 1 && roundIndex === 0 && initialParticipants.length === 1)) {
+        if (playersForCurrentRound.length === 1 && initialParticipants.length === 1) { // 단일 플레이어 토너먼트 (위에서 이미 처리)
+            break;
         }
         const roundMatches = [];
-        const nextRoundParticipants = [];
+        const playersForNextRound = [];
         let matchIndexInRound = 0;
-        for (let i = 0; i < activePlayersInRound.length; i += 2) {
-            const p1Name = activePlayersInRound[i];
-            const p2Name = (i + 1 < activePlayersInRound.length) ? activePlayersInRound[i + 1] : BYE_PLAYER_NAME;
+        for (let i = 0; i < playersForCurrentRound.length; i += 2) {
+            const p1Name = playersForCurrentRound[i];
+            const p2Name = (i + 1 < playersForCurrentRound.length) ? playersForCurrentRound[i + 1] : BYE_PLAYER_NAME;
             const matchId = `r${roundIndex}m${matchIndexInRound}`;
-            const p1Id = `${p1Name}_${matchId}p0`;
-            const p2Id = `${p2Name}_${matchId}p1`;
+            // ID 생성 시 null 가능성 고려 (escapeHTML은 null을 빈 문자열로 처리)
+            const p1Id = `${escapeHTML(p1Name)}_${matchId}p0`;
+            const p2Id = `${escapeHTML(p2Name)}_${matchId}p1`;
             const match = {
                 participants: [
                     { name: p1Name, id: p1Id },
                     { name: p2Name, id: p2Id }
                 ],
                 matchId: matchId,
-                isClickable: false, // Will be set true if both are actual players
+                isClickable: false,
                 roundIndex: roundIndex,
                 matchIndexInRound: matchIndexInRound
             };
-            if (p1Name === BYE_PLAYER_NAME && p2Name !== BYE_PLAYER_NAME) { // p2 gets a bye
+            if (p1Name === BYE_PLAYER_NAME && p2Name !== BYE_PLAYER_NAME && p2Name !== null) {
                 match.winnerName = p2Name;
-                nextRoundParticipants.push(p2Name);
+                playersForNextRound.push(p2Name);
             }
-            else if (p2Name === BYE_PLAYER_NAME && p1Name !== BYE_PLAYER_NAME) { // p1 gets a bye
+            else if (p2Name === BYE_PLAYER_NAME && p1Name !== BYE_PLAYER_NAME && p1Name !== null) {
                 match.winnerName = p1Name;
-                nextRoundParticipants.push(p1Name);
+                playersForNextRound.push(p1Name);
             }
-            else if (p1Name !== BYE_PLAYER_NAME && p2Name !== BYE_PLAYER_NAME) { // Actual match
+            else if (p1Name !== BYE_PLAYER_NAME && p1Name !== null && p2Name !== BYE_PLAYER_NAME && p2Name !== null) {
                 match.isClickable = true;
-                nextRoundParticipants.push(null); // Winner TBD
+                playersForNextRound.push(null);
             }
-            else { // Both are BYE or became null, should not happen in normal flow if padded correctly
-                nextRoundParticipants.push(null);
+            else if (p1Name && p1Name !== BYE_PLAYER_NAME && (p2Name === null || p2Name === BYE_PLAYER_NAME)) {
+                match.winnerName = p1Name; // p1이 있고 p2가 BYE거나 null이면 p1이 자동 승리
+                playersForNextRound.push(p1Name);
+            }
+            else if (p2Name && p2Name !== BYE_PLAYER_NAME && (p1Name === null || p1Name === BYE_PLAYER_NAME)) {
+                match.winnerName = p2Name; // p2가 있고 p1이 BYE거나 null이면 p2가 자동 승리
+                playersForNextRound.push(p2Name);
+            }
+            else {
+                playersForNextRound.push(null); // 둘 다 BYE이거나 둘 다 null
             }
             roundMatches.push(match);
             matchIndexInRound++;
         }
         rounds.push({ roundId: `round${roundIndex}`, matches: roundMatches });
-        activePlayersInRound = nextRoundParticipants.filter(p => p !== null || roundMatches.some(m => m.isClickable && m.winnerName === undefined)); // Filter out nulls unless there are pending matches
-        // If all remaining are placeholders for winners, pad for next round structure
-        if (activePlayersInRound.every(p => p === null) && activePlayersInRound.length > 0) {
-            // This means all matches in the current round are undecided.
-            // The length of activePlayersInRound is correct for the next round's slots.
-        }
-        else if (activePlayersInRound.length === 0 && roundMatches.some(m => m.winnerName === undefined && m.isClickable)) {
-            // This means the current round is not finished, but we have no one to pass to next round yet.
-            // We need placeholders for the next round.
-            activePlayersInRound = new Array(roundMatches.length / 2).fill(null);
-        }
+        playersForCurrentRound = playersForNextRound; // 타입 일치 (string | null)[]
         roundIndex++;
-        if (roundIndex > totalRounds + 2)
-            break; // Safety break for too many rounds
-        if (nextRoundParticipants.length === 1 && !roundMatches.some(m => m.winnerName === undefined && m.isClickable)) {
-            // If only one participant remains and all matches that could produce them are decided.
-            // This single participant is the winner of the tournament if they are not null.
-            if (nextRoundParticipants[0] !== null) {
-                // This logic is handled after the loop by checking the final round.
-            }
+        // 모든 경기가 결정되었고 다음 라운드 진출자가 1명일 때 종료
+        if (playersForCurrentRound.length === 1 && playersForCurrentRound[0] !== null && !roundMatches.some(m => m.isClickable && m.winnerName === undefined)) {
             break;
         }
-        if (nextRoundParticipants.length === 0 && !rounds[rounds.length - 1].matches.some(m => m.winnerName === undefined && m.isClickable)) {
-            break; // No more players or undecided matches
+        if (playersForCurrentRound.every(p => p === null) && playersForCurrentRound.length > 0 && !roundMatches.some(m => m.isClickable && m.winnerName === undefined)) {
+            // 모든 다음 라운드 슬롯이 null이고, 현재 라운드에 미결정 경기가 없으면 종료 (승자 없음)
+            break;
         }
+        if (roundIndex > totalRoundsBasedOnSlots + 2)
+            break;
     }
     return rounds;
 }
 function displayBracket(currentTournamentData) {
     if (!bracketContainer)
         return;
-    bracketContainer.innerHTML = ''; // Clear previous bracket
-    bracketContainer.classList.remove('items-center', 'justify-center'); // Remove initial placeholder styling
+    bracketContainer.innerHTML = '';
+    bracketContainer.classList.remove('items-center', 'justify-center');
     const fragment = document.createDocumentFragment();
     currentTournamentData.forEach((round, roundIdx) => {
         const roundDiv = document.createElement('div');
-        roundDiv.classList.add('round-column', 'flex', 'flex-col', 'justify-around', 'min-w-[180px]', 'md:min-w-[200px]');
+        roundDiv.classList.add('round-column', 'flex', 'flex-col', 'justify-around', 'min-w-[180px]', 'md:min-w-[220px]', 'px-2', 'md:px-4', 'relative');
         roundDiv.id = round.roundId;
         round.matches.forEach((match) => {
             const matchDiv = document.createElement('div');
-            matchDiv.classList.add('match', 'relative', 'bg-slate-800', 'p-2', 'rounded-md', 'shadow-md'); // Added more styling
+            matchDiv.classList.add('match', 'bg-slate-700', 'p-2', 'rounded-lg', 'shadow-lg', 'my-3', 'md:my-4', 'relative');
             matchDiv.id = match.matchId;
-            // Connector lines (basic attempt)
-            if (roundIdx > 0) {
-                // This is a simple placeholder for where more complex connector logic would go.
-                // True SVG connectors are better for this.
-            }
             match.participants.forEach((participant, participantIdxInMatch) => {
                 const participantDiv = document.createElement('div');
-                participantDiv.classList.add('participant', 'w-full', 'text-sm', 'truncate', 'px-2', 'py-3'); // py-3 for more height
-                participantDiv.textContent = participant.name || 'TBD';
+                participantDiv.classList.add('participant', 'w-full', 'text-sm', 'truncate', 'px-3', 'py-3', 'rounded', 'transition-all', 'duration-150');
+                let participantNameDisplay = escapeHTML(participant.name) || 'TBD';
                 if (participant.name === BYE_PLAYER_NAME) {
-                    participantDiv.classList.add('participant-bye');
+                    participantDiv.innerHTML = `<span class="text-slate-500 italic">${participantNameDisplay}</span>`;
+                    participantDiv.classList.add('bg-slate-600');
                 }
                 else if (!participant.name) {
-                    participantDiv.classList.add('participant-empty');
+                    participantDiv.innerHTML = `<span class="text-slate-500">${participantNameDisplay}</span>`;
+                    participantDiv.classList.add('bg-slate-600');
                 }
                 else {
                     if (match.winnerName) {
                         if (participant.name === match.winnerName) {
-                            participantDiv.classList.add('participant-winner');
+                            participantDiv.innerHTML = `🏆 <strong class="font-semibold">${participantNameDisplay}</strong>`;
+                            participantDiv.classList.add('bg-sky-500', 'text-white', 'shadow-md', 'ring-2', 'ring-sky-300');
                         }
                         else {
-                            participantDiv.classList.add('participant-loser');
+                            participantDiv.innerHTML = `<span class="text-slate-400 line-through">${participantNameDisplay}</span>`;
+                            participantDiv.classList.add('bg-slate-600', 'opacity-60');
                         }
                     }
                     else if (match.isClickable) {
-                        participantDiv.classList.add('participant-clickable');
+                        participantDiv.innerHTML = `<span class="cursor-pointer hover:text-sky-300">${participantNameDisplay}</span>`;
+                        participantDiv.classList.add('bg-slate-500', 'hover:bg-slate-400');
                         participantDiv.addEventListener('click', () => {
                             handleParticipantClick(match.roundIndex, match.matchIndexInRound, participantIdxInMatch);
                         });
                     }
+                    else {
+                        participantDiv.innerHTML = `<span class="text-slate-300">${participantNameDisplay}</span>`;
+                        participantDiv.classList.add('bg-slate-600');
+                    }
+                }
+                if (participantIdxInMatch === 0) {
+                    participantDiv.classList.add('mb-1');
                 }
                 matchDiv.appendChild(participantDiv);
             });
+            const connectorsDiv = document.createElement('div');
+            connectorsDiv.classList.add('match-connectors');
+            if (roundIdx < currentTournamentData.length - 1 ||
+                (roundIdx === currentTournamentData.length - 1 && currentTournamentData[currentTournamentData.length - 1].matches.length > 1)) {
+                if (!(currentTournamentData.length === roundIdx + 1 && round.matches.length === 1)) {
+                    const outgoingLine = document.createElement('div');
+                    outgoingLine.classList.add('connector-line', 'outgoing');
+                    connectorsDiv.appendChild(outgoingLine);
+                }
+            }
+            if (roundIdx > 0) {
+                const incomingLineVertical = document.createElement('div');
+                incomingLineVertical.classList.add('connector-line', 'incoming-vertical');
+                connectorsDiv.appendChild(incomingLineVertical);
+                const incomingLineTopHorizontal = document.createElement('div');
+                incomingLineTopHorizontal.classList.add('connector-line', 'incoming-horizontal', 'top');
+                connectorsDiv.appendChild(incomingLineTopHorizontal);
+                const incomingLineBottomHorizontal = document.createElement('div');
+                incomingLineBottomHorizontal.classList.add('connector-line', 'incoming-horizontal', 'bottom');
+                connectorsDiv.appendChild(incomingLineBottomHorizontal);
+            }
+            matchDiv.appendChild(connectorsDiv);
             roundDiv.appendChild(matchDiv);
         });
         fragment.appendChild(roundDiv);
     });
     bracketContainer.appendChild(fragment);
-    // Check for tournament winner after display
     checkForTournamentWinner(currentTournamentData);
 }
 function handleParticipantClick(roundIdx, matchIdxInRound, clickedParticipantIdxInMatch) {
     const match = tournamentData[roundIdx].matches[matchIdxInRound];
     if (match.winnerName || !match.isClickable)
-        return; // Match already decided or not ready
+        return;
     const winnerParticipant = match.participants[clickedParticipantIdxInMatch];
-    // const loserParticipant = match.participants[1 - clickedParticipantIdxInMatch]; // Not strictly needed by name
     if (!winnerParticipant.name || winnerParticipant.name === BYE_PLAYER_NAME)
-        return; // Clicked on BYE or empty slot
+        return;
     match.winnerName = winnerParticipant.name;
-    match.isClickable = false; // Match decided
-    // Advance winner to the next round
+    match.isClickable = false;
     if (roundIdx + 1 < tournamentData.length) {
         const nextRound = tournamentData[roundIdx + 1];
         const nextMatchIdx = Math.floor(matchIdxInRound / 2);
         const positionInNextMatch = matchIdxInRound % 2;
         if (nextRound.matches[nextMatchIdx]) {
             const targetSlot = nextRound.matches[nextMatchIdx].participants[positionInNextMatch];
-            targetSlot.name = winnerParticipant.name; // Set winner name in the next round's slot
-            targetSlot.id = `${winnerParticipant.name}_r${roundIdx + 1}m${nextMatchIdx}p${positionInNextMatch}`;
-            // Check if the *other* participant for the next match is now known, making it clickable
+            targetSlot.name = winnerParticipant.name;
+            targetSlot.id = `${escapeHTML(winnerParticipant.name)}_${nextRound.matches[nextMatchIdx].matchId}p${positionInNextMatch}`;
             const otherSlotInNextMatch = nextRound.matches[nextMatchIdx].participants[1 - positionInNextMatch];
             if (targetSlot.name && targetSlot.name !== BYE_PLAYER_NAME &&
                 otherSlotInNextMatch.name && otherSlotInNextMatch.name !== BYE_PLAYER_NAME) {
                 nextRound.matches[nextMatchIdx].isClickable = true;
             }
-            // If one participant is known and the other is a BYE that auto-advanced earlier
             else if (targetSlot.name && targetSlot.name !== BYE_PLAYER_NAME && otherSlotInNextMatch.name === BYE_PLAYER_NAME) {
                 nextRound.matches[nextMatchIdx].winnerName = targetSlot.name;
                 nextRound.matches[nextMatchIdx].isClickable = false;
-                // Recursively advance this new winner if it was a bye match
                 handleByeWinnerAdvancement(roundIdx + 1, nextMatchIdx);
             }
             else if (otherSlotInNextMatch.name && otherSlotInNextMatch.name !== BYE_PLAYER_NAME && targetSlot.name === BYE_PLAYER_NAME) {
@@ -312,12 +340,12 @@ function handleParticipantClick(roundIdx, matchIdxInRound, clickedParticipantIdx
             }
         }
     }
-    displayBracket(tournamentData); // Re-render the entire bracket
+    displayBracket(tournamentData);
 }
 function handleByeWinnerAdvancement(currentRoundIdx, currentMatchIdxInRound) {
     const currentMatch = tournamentData[currentRoundIdx].matches[currentMatchIdxInRound];
-    if (!currentMatch.winnerName)
-        return; // Should have a winner if this function is called
+    if (!currentMatch.winnerName || currentMatch.winnerName === BYE_PLAYER_NAME)
+        return;
     if (currentRoundIdx + 1 < tournamentData.length) {
         const nextRound = tournamentData[currentRoundIdx + 1];
         const nextMatchIdx = Math.floor(currentMatchIdxInRound / 2);
@@ -325,7 +353,7 @@ function handleByeWinnerAdvancement(currentRoundIdx, currentMatchIdxInRound) {
         if (nextRound.matches[nextMatchIdx]) {
             const targetSlot = nextRound.matches[nextMatchIdx].participants[positionInNextMatch];
             targetSlot.name = currentMatch.winnerName;
-            targetSlot.id = `${currentMatch.winnerName}_r${currentRoundIdx + 1}m${nextMatchIdx}p${positionInNextMatch}`;
+            targetSlot.id = `${escapeHTML(currentMatch.winnerName)}_${nextRound.matches[nextMatchIdx].matchId}p${positionInNextMatch}`;
             const otherSlotInNextMatch = nextRound.matches[nextMatchIdx].participants[1 - positionInNextMatch];
             if (targetSlot.name && targetSlot.name !== BYE_PLAYER_NAME &&
                 otherSlotInNextMatch.name && otherSlotInNextMatch.name !== BYE_PLAYER_NAME) {
@@ -347,47 +375,40 @@ function handleByeWinnerAdvancement(currentRoundIdx, currentMatchIdxInRound) {
 function checkForTournamentWinner(currentTournamentData) {
     if (!tournamentWinnerMessage)
         return;
+    if (currentTournamentData.length === 0) {
+        tournamentWinnerMessage.textContent = ''; // 데이터 없으면 메시지 클리어
+        return;
+    }
     const lastRound = currentTournamentData[currentTournamentData.length - 1];
     if (lastRound && lastRound.matches.length === 1) {
         const finalMatch = lastRound.matches[0];
         if (finalMatch.winnerName && finalMatch.winnerName !== BYE_PLAYER_NAME) {
-            tournamentWinnerMessage.textContent = `🏆 ${finalMatch.winnerName} 선수 우승! 🏆`;
-        }
-        else if (currentTournamentData.length === 1 && lastRound.matches[0].participants[0].name && lastRound.matches[0].participants[1].name === BYE_PLAYER_NAME) {
-            // Single player tournament scenario
-            tournamentWinnerMessage.textContent = `🏆 ${lastRound.matches[0].participants[0].name} 선수 우승! 🏆`;
+            tournamentWinnerMessage.innerHTML = `🏆 <span class="font-bold text-yellow-300">${escapeHTML(finalMatch.winnerName)}</span> 선수 우승! 🏆`;
+            return;
         }
     }
-}
-// --- Pong Game (2D Modal - Placeholder, as primary interaction is now direct winner selection) ---
-// The PongGame class and its instantiation might exist from previous code.
-// For now, clicking a match cell directly handles winner selection.
-// If the Pong game needs to be triggered, `handleParticipantClick` would need to
-// initiate the game and then use its result to set the winner.
-// Example of how PongGame might have been structured (for reference, not active in new flow):
-/*
-class PongGame {
-    // ... existing Pong game class ...
-    constructor(canvasId: string, private onGameEnd: (winnerName: string) => void) {
-        // ...
+    // 1명 참가 시 바로 우승 처리 (initialParticipantCount 사용)
+    if (initialParticipantCount === 1 && currentTournamentData.length > 0 &&
+        currentTournamentData[0].matches.length === 1 &&
+        currentTournamentData[0].matches[0].winnerName &&
+        currentTournamentData[0].matches[0].winnerName !== BYE_PLAYER_NAME) {
+        tournamentWinnerMessage.innerHTML = `🏆 <span class="font-bold text-yellow-300">${escapeHTML(currentTournamentData[0].matches[0].winnerName)}</span> 선수 우승! 🏆`;
+        return;
     }
-    startGame(player1: string, player2: string) {
-        // ...
-        // When game ends, call this.onGameEnd(winner);
-    }
+    // 아직 우승자가 결정되지 않았으면 메시지 비우기
+    tournamentWinnerMessage.textContent = '';
 }
-*/
-// Initial placeholder message in bracket container
+// --- Initial Setup ---
 if (bracketContainer) {
     bracketContainer.innerHTML = '<p class="text-slate-500 text-center w-full self-center text-sm md:text-base">대진표를 생성하려면 위 정보를 입력하세요.</p>';
-    bracketContainer.classList.add('flex', 'items-center', 'justify-center');
+    bracketContainer.classList.add('flex', 'items-center', 'justify-center', 'min-h-[200px]');
 }
-// Auto-generate inputs if a number is already in the field on load (e.g. after refresh)
-if (numParticipantsInput.value) {
+if (numParticipantsInput && numParticipantsInput.value) {
     const num = parseInt(numParticipantsInput.value);
     if (validateParticipantCount(num)) {
         generateParticipantInputs(num);
-        generateBracketButton.disabled = false;
+        if (generateBracketButton)
+            generateBracketButton.disabled = false;
     }
 }
 //# sourceMappingURL=app.js.map
