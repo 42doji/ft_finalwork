@@ -1,10 +1,25 @@
+var __awaiter = (this && this.__awaiter) || function (thisArg, _arguments, P, generator) {
+    function adopt(value) { return value instanceof P ? value : new P(function (resolve) { resolve(value); }); }
+    return new (P || (P = Promise))(function (resolve, reject) {
+        function fulfilled(value) { try { step(generator.next(value)); } catch (e) { reject(e); } }
+        function rejected(value) { try { step(generator["throw"](value)); } catch (e) { reject(e); } }
+        function step(result) { result.done ? resolve(result.value) : adopt(result.value).then(fulfilled, rejected); }
+        step((generator = generator.apply(thisArg, _arguments || [])).next());
+    });
+};
 import Fastify from 'fastify';
 import { ethers, JsonRpcProvider } from 'ethers';
 import dotenv from 'dotenv';
 import SimpleJsonArrayStorageABI from '../dist/src/abi/SimpleJsonArrayStorage.json' with { type: 'json' };
 import cors from '@fastify/cors';
+import path from 'path'; // path 모듈 추가
+import { fileURLToPath } from 'url'; // ESM 환경에서 __dirname 대신 사용
+import fastifyStatic from '@fastify/static'; // fastifyStatic 임포트
 // .env 파일 로드
 dotenv.config();
+// ESM 환경에서 __filename, __dirname 설정
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 // Fastify 인스턴스 생성
 const server = Fastify({ logger: true }); // 로깅 활성화
 server.register(cors, {
@@ -13,6 +28,20 @@ server.register(cors, {
     methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // 허용할 HTTP 메소드
     // allowedHeaders: ['Content-Type', 'Authorization'] // 필요시 허용할 헤더 추가
 });
+server.register(fastifyStatic, {
+    root: path.join(__dirname, '..'), // 👈 현재 server.ts 파일 위치에서 한 단계 상위 폴더 (프로젝트 루트)를 가리킵니다.
+    // index.html 파일이 프로젝트 루트에 있는지 확인하세요.
+    // 만약 index.html이 다른 폴더 (예: 'public')에 있다면 경로를 수정해야 합니다.
+    // 예: path.join(__dirname, '..', 'public')
+    prefix: '/', // '/' 경로로 요청 시 static 파일 제공
+    index: "index.html" // 👈 이 옵션을 추가하거나 확인하세요!
+});
+// server.register(fastifyStatic, { ... }); 의 다음에 추가
+server.get('/', (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
+    // static 플러그인에 설정된 root를 기준으로 파일을 전송합니다.
+    // index.html이 staticRootPath 바로 아래에 있어야 합니다.
+    return reply.sendFile('index.html');
+}));
 // --- 환경 변수 및 설정 ---
 const port = Number(process.env.PORT) || 3001;
 const rpcUrl = process.env.FUJI_RPC_URL;
@@ -61,12 +90,12 @@ const addJsonOpts = {
         }
     }
 };
-server.post('/jsons', addJsonOpts, async (request, reply) => {
+server.post('/jsons', addJsonOpts, (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     const { jsonString } = request.body;
     try {
         server.log.info(`Attempting to add JSON string: "${jsonString.substring(0, 50)}..."`);
         // 컨트랙트 함수 호출 (트랜잭션 전송)
-        const tx = await contract.addJsonString(jsonString);
+        const tx = yield contract.addJsonString(jsonString);
         server.log.info(`Transaction sent: ${tx.hash}`);
         // (선택 사항) 트랜잭션이 마이닝될 때까지 기다리고 결과 확인
         // const receipt = await tx.wait();
@@ -82,7 +111,7 @@ server.post('/jsons', addJsonOpts, async (request, reply) => {
         // 가스 부족, revert 등 다양한 오류 가능
         reply.status(500).send({ error: 'Failed to add JSON string', details: error.message });
     }
-});
+}));
 // 2. 저장된 JSON 개수 조회 (Read Operation)
 const getCountOpts = {
     schema: {
@@ -96,9 +125,9 @@ const getCountOpts = {
         }
     }
 };
-server.get('/jsons/count', getCountOpts, async (request, reply) => {
+server.get('/jsons/count', getCountOpts, (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        const countBigInt = await contract.getJsonCount();
+        const countBigInt = yield contract.getJsonCount();
         const count = Number(countBigInt); // JSON 응답을 위해 숫자로 변환 (매우 큰 수는 BigInt로 유지 필요)
         server.log.info(`Workspaceed JSON count: ${count}`);
         return { count };
@@ -107,7 +136,7 @@ server.get('/jsons/count', getCountOpts, async (request, reply) => {
         server.log.error('Error calling getJsonCount:', error);
         reply.status(500).send({ error: 'Failed to get JSON count', details: error.message });
     }
-});
+}));
 const getJsonByIndexOpts = {
     schema: {
         params: {
@@ -133,7 +162,7 @@ const getJsonByIndexOpts = {
         }
     }
 };
-server.get('/jsons/:index', getJsonByIndexOpts, async (request, reply) => {
+server.get('/jsons/:index', getJsonByIndexOpts, (request, reply) => __awaiter(void 0, void 0, void 0, function* () {
     const index = parseInt(request.params.index, 10);
     if (isNaN(index) || index < 0) {
         return reply.status(400).send({ error: 'Invalid index provided. Must be a non-negative integer.' });
@@ -141,7 +170,7 @@ server.get('/jsons/:index', getJsonByIndexOpts, async (request, reply) => {
     try {
         server.log.info(`Attempting to get JSON string at index: ${index}`);
         // getJsonStringByIndex 함수 호출 (또는 public getter 사용 가능: contract.storedJsonStrings(index))
-        const jsonString = await contract.getJsonStringByIndex(index);
+        const jsonString = yield contract.getJsonStringByIndex(index);
         server.log.info(`Found JSON string at index ${index}: "${jsonString.substring(0, 50)}..."`);
         return { index, jsonString };
     }
@@ -155,17 +184,18 @@ server.get('/jsons/:index', getJsonByIndexOpts, async (request, reply) => {
             reply.status(500).send({ error: 'Failed to get JSON string', details: error.message });
         }
     }
-});
+}));
 // --- 서버 시작 ---
-const start = async () => {
+const start = () => __awaiter(void 0, void 0, void 0, function* () {
     try {
-        await server.listen({ port: port, host: '0.0.0.0' }); // 모든 IP에서 접속 허용
-        server.log.info(`Server listening on port ${port}`);
+        yield server.listen({ port: port, host: '0.0.0.0' });
+        server.log.info(`Server listening on http://localhost:<span class="math-inline">\{port\} or http\://<your\-ip\-address\>\:</span>{port}`);
+        server.log.info(`Frontend should be accessible at http://localhost:<span class="math-inline">\{port\}/index\.html \(or just http\://localhost\:</span>{port}/ if default file serving is set up)`);
     }
     catch (err) {
         server.log.error(err);
         process.exit(1);
     }
-};
+});
 start();
 //# sourceMappingURL=server.js.map

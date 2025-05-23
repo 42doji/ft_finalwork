@@ -1,31 +1,29 @@
 // tsconfig.json
 {
   "compilerOptions": {
-    "target": "ES6", // 또는 "ES2017", "ES2020" 등 프론트엔드 대상 환경에 맞게
-    "module": "ESNext",
+    "target": "ES6", // Node.js 최신 버전을 사용한다면 "ES2020" 이상도 좋습니다.
+    "module": "ESNext", // package.json에서 "type": "module"을 사용하므로 적절합니다.
     "lib": [
-      "dom",        // <<<--- 이 부분을 추가하거나 확인하세요!
-      "dom.iterable", // (선택 사항) for...of 루프 등을 DOM 컬렉션에 사용하려면 추가
-      "es2017"      // (또는 최신 ECMAScript 버전)
+      "dom",          // app.ts, pong3D.ts 등이 브라우저용 코드라면 유지합니다.
+      "dom.iterable", // 필요하다면 유지합니다.
+      "es2017"      // 또는 "ES2020" 등 Node.js 환경에 맞는 최신 버전
     ],
-    "outDir": "./dist", // 프론트엔드 JS 출력 경로 예시 (백엔드와 구분 권장)
-    "rootDir": "./src",    // 또는 프론트엔드 소스 경로
+    "outDir": "./dist",
+    "rootDir": "./src",
     "strict": true,
     "esModuleInterop": true,
     "skipLibCheck": true,
     "forceConsistentCasingInFileNames": true,
     "sourceMap": true,
-    "moduleResolution": "node", // 프론트엔드에서는 "bundler" 또는 "node"도 괜찮음
+    "moduleResolution": "node", // 또는 "nodenext"
     "resolveJsonModule": true
   },
   "include": [
-    "src/app.ts",         // 프론트엔드 파일들을 명시하거나
-    "src/blockdata.ts",
-    "src/pong3D.ts"
-    // 또는 "src/frontend/**/*" 와 같이 폴더 지정
+    "src/**/*.ts" //  <-- 이렇게 변경하여 src 폴더 내의 모든 .ts 파일을 포함시킵니다.
+    //      기존의 app.ts, blockdata.ts, pong3D.ts도 포함됩니다.
   ],
   "exclude": [
-    "node_modules",
-    "src/server.ts"       // 백엔드 서버 파일은 이 설정에서 제외 (별도 tsconfig 사용 권장)
+    "node_modules"
+    // "src/server.ts"  <-- 이 줄을 삭제하거나 주석 처리하여 제외되지 않도록 합니다.
   ]
 }

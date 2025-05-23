@@ -3,9 +3,18 @@ import { ethers, Contract, Wallet, Provider, JsonRpcProvider, ContractTransactio
 import dotenv from 'dotenv';
 import SimpleJsonArrayStorageABI from '../dist/src/abi/SimpleJsonArrayStorage.json' with { type: 'json' };
 import cors from '@fastify/cors';
+import path from 'path'; // path 모듈 추가
+import { fileURLToPath } from 'url'; // ESM 환경에서 __dirname 대신 사용
+import fastifyStatic from '@fastify/static'; // fastifyStatic 임포트
 
 // .env 파일 로드
 dotenv.config();
+
+
+// ESM 환경에서 __filename, __dirname 설정
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 
 // Fastify 인스턴스 생성
 const server: FastifyInstance = Fastify({ logger: true }); // 로깅 활성화
@@ -16,6 +25,23 @@ server.register(cors, {
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], // 허용할 HTTP 메소드
   // allowedHeaders: ['Content-Type', 'Authorization'] // 필요시 허용할 헤더 추가
 });
+
+server.register(fastifyStatic, {
+  root: path.join(__dirname, '..'), // 👈 현재 server.ts 파일 위치에서 한 단계 상위 폴더 (프로젝트 루트)를 가리킵니다.
+  // index.html 파일이 프로젝트 루트에 있는지 확인하세요.
+  // 만약 index.html이 다른 폴더 (예: 'public')에 있다면 경로를 수정해야 합니다.
+  // 예: path.join(__dirname, '..', 'public')
+  prefix: '/',                     // '/' 경로로 요청 시 static 파일 제공
+  index: "index.html"              // 👈 이 옵션을 추가하거나 확인하세요!
+});
+
+// server.register(fastifyStatic, { ... }); 의 다음에 추가
+server.get('/', async (request, reply) => {
+  // static 플러그인에 설정된 root를 기준으로 파일을 전송합니다.
+  // index.html이 staticRootPath 바로 아래에 있어야 합니다.
+  return reply.sendFile('index.html');
+});
+
 
 // --- 환경 변수 및 설정 ---
 const port = Number(process.env.PORT) || 3001;
@@ -183,8 +209,9 @@ server.get<{ Params: GetJsonParams }>('/jsons/:index', getJsonByIndexOpts, async
 // --- 서버 시작 ---
 const start = async () => {
   try {
-    await server.listen({ port: port, host: '0.0.0.0' }); // 모든 IP에서 접속 허용
-    server.log.info(`Server listening on port ${port}`);
+    await server.listen({ port: port, host: '0.0.0.0' });
+    server.log.info(`Server listening on http://localhost:<span class="math-inline">\{port\} or http\://<your\-ip\-address\>\:</span>{port}`);
+    server.log.info(`Frontend should be accessible at http://localhost:<span class="math-inline">\{port\}/index\.html \(or just http\://localhost\:</span>{port}/ if default file serving is set up)`);
   } catch (err) {
     server.log.error(err);
     process.exit(1);

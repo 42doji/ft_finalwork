@@ -109,7 +109,7 @@ function handleSaveNewJson() {
     });
 }
 // 설정
-const BACKEND_API_BASE_URL = 'http://172.20.208.1:3000';
+const BACKEND_API_BASE_URL = '';
 const FUJI_EXPLORER_URL = 'https://testnet.snowtrace.io';
 // 유틸리티 함수 (updateStatus, displayResult, escapeHtml - 이전 답변 내용 참고)
 // updateStatus 함수는 statusDiv null 체크 추가

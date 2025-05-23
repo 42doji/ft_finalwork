@@ -125,7 +125,7 @@ interface RetrievedJsonData { index: number; jsonString: string; }
 interface ApiErrorResponse { details?: string; error?: string; }
 
 // 설정
-const BACKEND_API_BASE_URL: string = 'http://172.20.208.1:3000';
+const BACKEND_API_BASE_URL: string = '';
 const FUJI_EXPLORER_URL: string = 'https://testnet.snowtrace.io';
 
 // 유틸리티 함수 (updateStatus, displayResult, escapeHtml - 이전 답변 내용 참고)
