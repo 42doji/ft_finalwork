@@ -387,7 +387,6 @@ function checkForTournamentWinner(currentTournamentData) {
             return;
         }
     }
-    // 1명 참가 시 바로 우승 처리 (initialParticipantCount 사용)
     if (initialParticipantCount === 1 && currentTournamentData.length > 0 &&
         currentTournamentData[0].matches.length === 1 &&
         currentTournamentData[0].matches[0].winnerName &&
@@ -395,10 +394,8 @@ function checkForTournamentWinner(currentTournamentData) {
         tournamentWinnerMessage.innerHTML = `🏆 <span class="font-bold text-yellow-300">${escapeHTML(currentTournamentData[0].matches[0].winnerName)}</span> 선수 우승! 🏆`;
         return;
     }
-    // 아직 우승자가 결정되지 않았으면 메시지 비우기
     tournamentWinnerMessage.textContent = '';
 }
-// --- Initial Setup ---
 if (bracketContainer) {
     bracketContainer.innerHTML = '<p class="text-slate-500 text-center w-full self-center text-sm md:text-base">대진표를 생성하려면 위 정보를 입력하세요.</p>';
     bracketContainer.classList.add('flex', 'items-center', 'justify-center', 'min-h-[200px]');
