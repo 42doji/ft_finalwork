@@ -6,6 +6,7 @@
 
 1. 
      ```
+     npm install
      npm run bulid
      npx start
      ```
