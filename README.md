@@ -4,16 +4,17 @@
 
 이 애플리케이션을 실행하는 방법은 다음과 같습니다:
 
-1. 
+1. build
      ```
      npm install
      npm run bulid
      npx start
      ```
-   - 그런 다음 브라우저에서 `http://localhost:8080` 접속
+
 2. Docker
       ```
-      
+           docker pull 42doji/3dpong:1.0.0
+           docker run -p 3000:3000 42doji/3dpong:1.0.0
       ```
 
 ## 애플리케이션 사용 방법
@@ -35,6 +36,10 @@
    - 각 경기 결과는 자동으로 대진표에 기록됨
    - 승자는 다음 라운드로 자동 진출
    - 모든 경기가 끝나면 최종 우승자가 표시됨
+  
+5. **블록체인**:
+   - 각 경기 결과는 Avalanche Testnet에 기록됨
+   - 각 라운드의 결과를 호출하여 확인할 수 있음
 
 ## 기술 스택
 
