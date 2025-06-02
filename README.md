@@ -4,17 +4,16 @@
 
 이 애플리케이션을 실행하는 방법은 다음과 같습니다:
 
-1. 프로젝트 폴더에서 `index.html` 파일을 웹 브라우저에서 직접 열기:
-   - 파일 탐색기에서 `index.html` 파일을 더블클릭
-   - 또는 브라우저에서 파일 메뉴를 통해 열기 (Ctrl+O 또는 Command+O)
-   - 또는 브라우저에 `file:///경로/tournament/index.html` 입력 (경로는 실제 위치로 변경)
-
-2. 간단한 웹 서버를 사용하여 실행 (권장):
-   - Node.js가 설치되어 있다면, 프로젝트 폴더에서 다음 명령어 실행:
+1. 
      ```
-     npx http-server
+     npm run bulid
+     npx start
      ```
    - 그런 다음 브라우저에서 `http://localhost:8080` 접속
+2. Docker
+      ```
+      
+      ```
 
 ## 애플리케이션 사용 방법
 
